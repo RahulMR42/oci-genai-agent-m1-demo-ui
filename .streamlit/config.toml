@@ -3,15 +3,15 @@ toolbarMode = "minimal"
 [server]
 port = 9001 #Port to expose streamlit
 #
-[theme]
-primaryColor="#FF4B4B"
-backgroundColor="#FFFFFF"
-secondaryBackgroundColor="#F0F2F6"
-textColor="#31333F"
-font="sans serif"
 #[theme]
-#primaryColor = "#e07722"
-#backgroundColor = "#FFFFFF"
-#secondaryBackgroundColor = "#F0F0F0"
-#textColor = "#000000"
+#primaryColor="#FF4B4B"
+#backgroundColor="#FFFFFF"
+#secondaryBackgroundColor="#F0F2F6"
+#textColor="#31333F"
+#font="sans serif"
+[theme]
+primaryColor = "#e07722"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F0F0"
+textColor = "#000000"
 
