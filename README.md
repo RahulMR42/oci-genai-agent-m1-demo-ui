@@ -20,8 +20,7 @@ git clone https://github.com/RahulMR42/oci-genai-agent-m0-demo-ui
 ```shell
 virtualenv env
 source env/bin/activate
-pip install streamlit oci streamlit_feedback
-pip install genai_agent_service_bmc_python_client-<>-py2.py3-none-any.whl #As its a beta service refer Oracle rep or engineering team note and use the appropriate version
+pip install -r requirements.txt
 ```
 - Set credentials for users
 ```shell
@@ -47,6 +46,10 @@ export default_key = "AnotherDefaultKey"
 - Set an administrator password (A stronger and complex one), this is not for users but for admins to run Administrative actions via UI, Its optional to allow administrative `edit/update` actions via UI.
 ```shell
 export admin_password="<A Complicated one >"
+```
+- Export Chat Agent base url.
+```shell
+export oci_agent_base_url=https://agent-runtime.generativeai.<region>.oci.oraclecloud.com
 ```
 - Run the app 
 ```shell

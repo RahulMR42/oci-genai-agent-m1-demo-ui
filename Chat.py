@@ -34,4 +34,4 @@ if __name__ == "__main__":
     logger = load_logger("chat.log")
     cred_check(logger)
     agent_handler = Agent(logger)
-    agent_action(agent_handler, stream_option, "m0-genaisolution", "Demo of Agent M0", default_key, logger)
+    agent_action(agent_handler, stream_option, "m1-genaisolution", "Demo of Agent M1", default_key, logger)

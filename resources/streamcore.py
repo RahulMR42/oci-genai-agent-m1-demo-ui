@@ -4,7 +4,6 @@ import shortuuid
 import uuid
 import streamlit as st
 from streamlit_feedback import streamlit_feedback
-import genai_agent_service_bmc_python_client
 from resources.utils import (return_keys_from_endpoint_config,
                              fetch_endpoint_ocid,
                              set_region)
@@ -12,7 +11,7 @@ from resources.utils import (return_keys_from_endpoint_config,
 class Agent:
     def __init__(self, logger):
         self.CONFIG_PROFILE = os.getenv("oci_config_profile", default="DEFAULT")
-        self.oci_config = oci.config.from_file()
+        self.oci_config = oci.config.from_file(profile_name=self.CONFIG_PROFILE)
         self.logger = logger
 
 
@@ -26,14 +25,15 @@ class Agent:
             self.logger.info("Invalidating session ID")
 
     def create_oci_client(self, region):
-        oci_client = genai_agent_service_bmc_python_client.GenerativeAiAgentRuntimeClient(
-            config=self.oci_config,
-            service_endpoint=os.environ['oci_agent_base_url'],
-            retry_strategy=oci.retry.NoneRetryStrategy(),#oci.retry.NoneRetryStrategy(), #oci.retry.NoneRetryStrategy(),
-            region=region,
-            timeout=(10, 240))
-        self.logger.info("Starting new OCI client")
-        return oci_client
+        try:
+            generative_ai_agent_runtime_client = oci.generative_ai_agent_runtime.GenerativeAiAgentRuntimeClient(
+                config=self.oci_config,
+                service_endpoint=os.environ['oci_agent_base_url'],
+                region=region)
+            self.logger.info("Starting new OCI client")
+            return generative_ai_agent_runtime_client
+        except Exception as error:
+            self.logger.DEBUG(f"Failed to invoke client generation {error}")
 
 
     @staticmethod
@@ -44,12 +44,6 @@ class Agent:
             A simple UI to call [OCI Genai Agent endpoints](https://docs.oracle.com/en-us/iaas/Content/generative-ai-agents/home.htm)
             ### Credits.
             - **Creator - rahul.m.r@oracle.com**.
-            - **Inspirations (UI)** 
-            - chris.pavlakos@oracle.com
-            - shujie.chen@oracle.com
-            - prabhat.kumar.prabhakar@oracle.com
-            
-            
             
             """
         )
@@ -59,7 +53,9 @@ class Agent:
             if st.session_state.session_id is not None:
                 agent_endpoint = os.environ['agent_endpoint']
                 self.logger.info("Attempting session exit")
-                delete_session_response = agent_oci_client.delete_session(agent_endpoint, st.session_state.session_id)
+                delete_session_response = agent_oci_client.delete_session(
+                    agent_endpoint_id = agent_endpoint,
+                    session_id = st.session_state.session_id)
                 self.logger.info(f"Logout done - {str(delete_session_response.data)}/{str(delete_session_response.status)}")
         except Exception as error:
             self.logger.error(f"Logout failed - {error}")
@@ -68,7 +64,7 @@ class Agent:
     def logout(self,agent_oci_client):
         col1, col2, col3 = st.columns([2,2,2])
         with col2:
-            if st.button("【⏻]", use_container_width=False, help="Delete Chat Session"):
+            if st.button("【⏻]", use_container_width=False, help="Logout Chat Session"):
                 self.logger.info("Attempting chat session deletion")
                 self.session_exit(agent_oci_client)
 
@@ -116,7 +112,7 @@ class Agent:
     def agent_footer():
         footer = """<style>.footer {position: fixed;left: 0;bottom: 0;width: 100%;
                  background-color: #F0F0F0;color: black;text-align: center;}
-                </style><div class='footer'><p> 🏷️ 0.0.0b | 🅾️ Powered by OCI Genai Agent | ©️ - Oracle 2024  </p></div>"""
+                </style><div class='footer'><p> 🏷️ 0.1.0b | 🅾️ Powered by OCI Generative AI Agent | ©️ - Oracle 2024  </p></div>"""
         st.markdown(footer, unsafe_allow_html=True)
 
     def agent_load(self, display_name, description, stream_option):
@@ -128,13 +124,17 @@ class Agent:
         self.sidebar()
         if st.session_state.session_id is None:
             agent_oci_client = self.create_oci_client(region)
-            session_attributes = genai_agent_service_bmc_python_client.models.CreateSessionDetails(
-                display_name=display_name, idle_timeout_in_seconds=10, description=description
-            )
-            session_response = agent_oci_client.create_session(session_attributes, agent_endpoint)
-            st.session_state.session_id = session_response.data.id
-            if hasattr(session_response.data, 'welcome_message'):
-                st.session_state.messages.append({"role": "assistant", "content": session_response.data.welcome_message})
+            try:
+                create_session_response = agent_oci_client.create_session(
+                    create_session_details=oci.generative_ai_agent_runtime.models.CreateSessionDetails(
+                    display_name=display_name,
+                    description=description),
+                    agent_endpoint_id=agent_endpoint)
+                st.session_state.session_id = create_session_response.data.id
+                if hasattr(create_session_response.data, 'welcome_message'):
+                    st.session_state.messages.append({"role": "assistant", "content": create_session_response.data.welcome_message})
+            except Exception as error:
+                self.logger.error(f"Failed to create session {error}")
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
@@ -145,12 +145,18 @@ class Agent:
                 st.markdown(user_input)
             with st.spinner():
                 self.logger.info("Attempting execution ..")
-                execute_session_details = genai_agent_service_bmc_python_client.models.ExecuteSessionDetails(user_message = str(user_input), should_stream=stream_option)
                 agent_oci_client = self.create_oci_client(region)
-                execute_session_response = agent_oci_client.execute_session(agent_endpoint, st.session_state.session_id, execute_session_details)
-            if execute_session_response.status == 200:
+                chat_response = agent_oci_client.chat(
+                    agent_endpoint_id=agent_endpoint,
+                    chat_details=oci.generative_ai_agent_runtime.models.ChatDetails(
+                        user_message=f"{str(user_input)}.Always share all possible hyper links if found any in the output",
+                        should_stream=False,
+                        session_id=st.session_state.session_id),
+                )
+
+            if chat_response.status == 200:
                 self.logger.info(f"Received API output with return as 200")
-                response_content = execute_session_response.data.message.content
+                response_content = chat_response.data.message.content
                 st.session_state.messages.append({"role": "assistant", "content": response_content.text})
                 with st.chat_message("assistant"):
                     st.markdown(response_content.text)
@@ -167,4 +173,4 @@ class Agent:
                                        key='fb_k')
                     st.form_submit_button('Save feedback', on_click=self.agent_feedback)
             else:
-                self.logger.error(f"API execution failed with error {execute_session_response.status}")
+                self.logger.error(f"API execution failed with error {chat_response.status}")
