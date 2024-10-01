@@ -13,7 +13,7 @@
 
 - Clone the repo 
 ```shell
-git clone https://github.com/RahulMR42/oci-genai-agent-m0-demo-ui
+git clone https://github.com/RahulMR42/oci-genai-agent-m1-demo-ui
 ```
 - Install requirements
 
